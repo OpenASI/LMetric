@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>lmetric package &mdash; lmetric 0.0.1 documentation</title>
+  <title>lmetric package &mdash; lmetric 0.0.2 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="lmetric.utils package" href="lmetric.utils.html" />
+    <link rel="next" title="lmetric.floating_ops package" href="lmetric.floating_ops.html" />
     <link rel="prev" title="lmetric" href="modules.html" /> 
 </head>
 
@@ -47,6 +47,9 @@
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">lmetric</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">lmetric package</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#subpackages">Subpackages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.floating_ops.html">lmetric.floating_ops package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_prune.html">lmetric.llm_prune package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_quant.html">lmetric.llm_quant package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="lmetric.utils.html">lmetric.utils package</a></li>
 </ul>
 </li>
@@ -88,6 +91,65 @@
 <h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this heading"></a></h2>
 <div class="toctree-wrapper compound">
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="lmetric.floating_ops.html">lmetric.floating_ops package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.floating_ops.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.floating_ops.html#module-lmetric.floating_ops.lmetric_matmul">lmetric.floating_ops.lmetric_matmul module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.floating_ops.html#lmetric.floating_ops.lmetric_matmul.lmetric_matmul_fp16"><code class="docutils literal notranslate"><span class="pre">lmetric_matmul_fp16()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.floating_ops.html#lmetric.floating_ops.lmetric_matmul.matmul"><code class="docutils literal notranslate"><span class="pre">matmul()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.floating_ops.html#module-lmetric.floating_ops">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="lmetric.llm_prune.html">lmetric.llm_prune package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.llm_prune.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.llm_prune.html#module-lmetric.llm_prune.lmetric_prune_matmul">lmetric.llm_prune.lmetric_prune_matmul module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_prune.html#lmetric.llm_prune.lmetric_prune_matmul.get_coo"><code class="docutils literal notranslate"><span class="pre">get_coo()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_prune.html#lmetric.llm_prune.lmetric_prune_matmul.get_pt_sparse"><code class="docutils literal notranslate"><span class="pre">get_pt_sparse()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_prune.html#lmetric.llm_prune.lmetric_prune_matmul.lmetric_prune_matmul_Lx3HxH"><code class="docutils literal notranslate"><span class="pre">lmetric_prune_matmul_Lx3HxH()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.llm_prune.html#module-lmetric.llm_prune">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="lmetric.llm_quant.html">lmetric.llm_quant package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.llm_quant.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.llm_quant.html#module-lmetric.llm_quant.custom_autotune">lmetric.llm_quant.custom_autotune module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.custom_autotune.Autotuner"><code class="docutils literal notranslate"><span class="pre">Autotuner</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.custom_autotune.Autotuner.prune_configs"><code class="docutils literal notranslate"><span class="pre">Autotuner.prune_configs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.custom_autotune.Autotuner.run"><code class="docutils literal notranslate"><span class="pre">Autotuner.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.custom_autotune.Autotuner.warmup"><code class="docutils literal notranslate"><span class="pre">Autotuner.warmup()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.custom_autotune.autotune"><code class="docutils literal notranslate"><span class="pre">autotune()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.custom_autotune.matmul248_kernel_config_pruner"><code class="docutils literal notranslate"><span class="pre">matmul248_kernel_config_pruner()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.llm_quant.html#module-lmetric.llm_quant.gptq_quant_linear">lmetric.llm_quant.gptq_quant_linear module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.QuantLinear"><code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.QuantLinear.forward"><code class="docutils literal notranslate"><span class="pre">QuantLinear.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.QuantLinear.pack"><code class="docutils literal notranslate"><span class="pre">QuantLinear.pack()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.QuantLinearFunction"><code class="docutils literal notranslate"><span class="pre">QuantLinearFunction</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.QuantLinearFunction.backward"><code class="docutils literal notranslate"><span class="pre">QuantLinearFunction.backward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.QuantLinearFunction.forward"><code class="docutils literal notranslate"><span class="pre">QuantLinearFunction.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.autotune_warmup_linear"><code class="docutils literal notranslate"><span class="pre">autotune_warmup_linear()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.make_quant_linear"><code class="docutils literal notranslate"><span class="pre">make_quant_linear()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.matmul248"><code class="docutils literal notranslate"><span class="pre">matmul248()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.gptq_quant_linear.transpose_matmul248"><code class="docutils literal notranslate"><span class="pre">transpose_matmul248()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.llm_quant.html#module-lmetric.llm_quant.lmetric_quant_matmul">lmetric.llm_quant.lmetric_quant_matmul module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.lmetric_quant_matmul.get_bnb_weight_state"><code class="docutils literal notranslate"><span class="pre">get_bnb_weight_state()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="lmetric.llm_quant.html#lmetric.llm_quant.lmetric_quant_matmul.lmetric_quant_matmul_Lx3HxH"><code class="docutils literal notranslate"><span class="pre">lmetric_quant_matmul_Lx3HxH()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="lmetric.llm_quant.html#module-lmetric.llm_quant">Module contents</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="lmetric.utils.html">lmetric.utils package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="lmetric.utils.html#submodules">Submodules</a></li>
 <li class="toctree-l2"><a class="reference internal" href="lmetric.utils.html#module-lmetric.utils.hf_download">lmetric.utils.hf_download module</a><ul>
@@ -110,7 +172,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="modules.html" class="btn btn-neutral float-left" title="lmetric" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="lmetric.utils.html" class="btn btn-neutral float-right" title="lmetric.utils package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="lmetric.floating_ops.html" class="btn btn-neutral float-right" title="lmetric.floating_ops package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

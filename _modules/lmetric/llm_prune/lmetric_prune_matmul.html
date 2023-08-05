@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lmetric.llm_prune.lmetric_prune_matmul &mdash; lmetric 0.0.2 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            lmetric
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">lmetric</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">lmetric</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">lmetric.llm_prune.lmetric_prune_matmul</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for lmetric.llm_prune.lmetric_prune_matmul</h1><div class="highlight"><pre>
+<span></span><span class="c1"># %%</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+
+<span class="kn">import</span> <span class="nn">bitsandbytes</span> <span class="k">as</span> <span class="nn">bnb</span>
+<span class="kn">from</span> <span class="nn">bitsandbytes</span> <span class="kn">import</span> <span class="n">functional</span> <span class="k">as</span> <span class="n">F</span>
+
+<span class="kn">from</span> <span class="nn">pymeten</span> <span class="kn">import</span> <span class="n">triton_benchmark_sizes</span><span class="p">,</span> <span class="n">MetricConfig</span><span class="p">,</span> <span class="n">MetricUnit</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">norm</span>
+
+<span class="c1"># %%</span>
+
+<div class="viewcode-block" id="get_coo"><a class="viewcode-back" href="../../../lmetric.llm_prune.html#lmetric.llm_prune.lmetric_prune_matmul.get_coo">[docs]</a><span class="k">def</span> <span class="nf">get_coo</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a COO sparse tensor representation of the input tensor x based on a given threshold.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (torch.Tensor): Input tensor.</span>
+<span class="sd">        threshold (float, optional): Threshold value. Defaults to 0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        torch.COOSparseTensor: COO sparse tensor representation of x.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">#if threshold ==0:</span>
+    <span class="c1">#    threshold = torch.quantile(x[:128][:2048].float(), ratio)</span>
+    <span class="c1">#print(f&#39;{ratio} {threshold}&#39;)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">threshold</span>
+    <span class="n">nnz</span> <span class="o">=</span> <span class="p">(</span><span class="n">idx</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="c1">#print(f&#39;nonzero ratio: {nnz / idx.numel()}&#39;)</span>
+    <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+    <span class="n">cooA</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">COOSparseTensor</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">nnz</span><span class="p">,</span> <span class="n">rows</span><span class="o">.</span><span class="n">int</span><span class="p">(),</span> <span class="n">cols</span><span class="o">.</span><span class="n">int</span><span class="p">(),</span> <span class="n">values</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">cooA</span></div>
+
+<div class="viewcode-block" id="get_pt_sparse"><a class="viewcode-back" href="../../../lmetric.llm_prune.html#lmetric.llm_prune.lmetric_prune_matmul.get_pt_sparse">[docs]</a><span class="k">def</span> <span class="nf">get_pt_sparse</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">representation</span><span class="o">=</span><span class="s1">&#39;COO&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns a PyTorch sparse tensor representation of the input tensor x based on a given threshold and representation type.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (torch.Tensor): Input tensor.</span>
+<span class="sd">        threshold (float, optional): Threshold value. Defaults to 0.</span>
+<span class="sd">        representation (str, optional): Sparse tensor representation type. Defaults to &#39;COO&#39;. options: COO CSR CSC BSR BSC</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        torch.Tensor: Sparse tensor representation of x.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">#if threshold ==0:</span>
+    <span class="c1">#    threshold = torch.quantile(x[:128][:2048].float(), ratio)</span>
+
+    <span class="n">newx</span><span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span><span class="o">&gt;</span><span class="n">threshold</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">x</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">representation</span> <span class="o">==</span> <span class="s1">&#39;COO&#39;</span><span class="p">:</span>
+        <span class="n">newx</span><span class="o">=</span> <span class="n">newx</span><span class="o">.</span><span class="n">to_sparse_coo</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">representation</span> <span class="o">==</span> <span class="s1">&#39;BSC&#39;</span><span class="p">:</span>
+        <span class="n">newx</span><span class="o">=</span> <span class="n">newx</span><span class="o">.</span><span class="n">to_sparse_bsc</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">representation</span> <span class="o">==</span> <span class="s1">&#39;BSR&#39;</span><span class="p">:</span>
+        <span class="n">newx</span><span class="o">=</span> <span class="n">newx</span><span class="o">.</span><span class="n">to_sparse_bsr</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">representation</span> <span class="o">==</span> <span class="s1">&#39;CSC&#39;</span><span class="p">:</span>
+        <span class="n">newx</span><span class="o">=</span> <span class="n">newx</span><span class="o">.</span><span class="n">to_sparse_csc</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">representation</span> <span class="o">==</span> <span class="s1">&#39;CSR&#39;</span><span class="p">:</span>
+        <span class="n">newx</span><span class="o">=</span> <span class="n">newx</span><span class="o">.</span><span class="n">to_sparse_csr</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">newx</span><span class="o">=</span> <span class="n">newx</span><span class="o">.</span><span class="n">to_sparse</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">newx</span><span class="p">))</span>
+
+    <span class="c1">#print(newx)</span>
+
+    <span class="k">return</span> <span class="n">newx</span></div>
+
+<span class="c1"># %%</span>
+<div class="viewcode-block" id="lmetric_prune_matmul_Lx3HxH"><a class="viewcode-back" href="../../../lmetric.llm_prune.html#lmetric.llm_prune.lmetric_prune_matmul.lmetric_prune_matmul_Lx3HxH">[docs]</a><span class="k">def</span> <span class="nf">lmetric_prune_matmul_Lx3HxH</span><span class="p">(</span><span class="n">seqlen</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">hidden_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">2048</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;MS&#39;</span><span class="p">,</span>
+                                <span class="n">kernels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;torch&#39;</span><span class="p">,</span> <span class="s1">&#39;bnb_sparse&#39;</span><span class="p">],</span>
+                                <span class="n">representations</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;COO&#39;</span><span class="p">],</span>
+                                <span class="n">ratios</span><span class="o">=</span><span class="p">[</span><span class="mf">0.5</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Computes metrics for pruning and matrix multiplication operations.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        seqlen (int, optional): Sequence length. Defaults to 128.</span>
+<span class="sd">        hidden_sizes (list, optional): List of hidden layer sizes. Defaults to [2048, 4096].</span>
+<span class="sd">        dtype (torch.dtype, optional): Data type of the tensors. Defaults to torch.float16.</span>
+<span class="sd">        metric (str, optional): Metric type (&#39;TFLOPS&#39;, &#39;TBPS&#39;, or &#39;MS&#39;). Defaults to &#39;MS&#39;.</span>
+<span class="sd">        kernels (list, optional): List of kernel types (&#39;torch&#39;, &#39;bnb_sparse&#39;, &#39;torch_sparse&#39;). Defaults to [&#39;torch&#39;, &#39;bnb_sparse&#39;].</span>
+<span class="sd">        representations (list, optional): List of sparse tensor representations (&#39;COO&#39;, &#39;CSC&#39;, &#39;CSR&#39;, &#39;BSC&#39;, &#39;BSR&#39;). Defaults to [&#39;COO&#39;].</span>
+<span class="sd">        ratios (list, optional): List of pruning ratios. Defaults to [0.5].</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">dtype_bytes</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">bits</span> <span class="o">//</span> <span class="mi">8</span>
+
+    <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s1">&#39;TFLOPS&#39;</span><span class="p">:</span>
+        <span class="n">metric_config</span><span class="o">=</span><span class="n">MetricConfig</span><span class="p">(</span>
+            <span class="n">MetricUnit</span><span class="o">.</span><span class="n">TFLOPS</span><span class="p">,</span>
+            <span class="n">calc_measure_fn</span><span class="o">=</span><span class="k">lambda</span> <span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">:</span> <span class="n">dtype_bytes</span><span class="o">*</span><span class="n">size</span><span class="o">*</span><span class="n">size</span><span class="o">*</span><span class="n">size</span> <span class="o">/</span> <span class="n">ms</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">metric</span> <span class="o">==</span> <span class="s1">&#39;TBPS&#39;</span><span class="p">:</span>
+        <span class="n">metric_config</span><span class="o">=</span><span class="n">MetricConfig</span><span class="p">(</span>
+            <span class="n">MetricUnit</span><span class="o">.</span><span class="n">TBPS</span><span class="p">,</span>
+            <span class="n">calc_measure_fn</span><span class="o">=</span><span class="k">lambda</span> <span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">:</span> <span class="mi">3</span><span class="o">*</span><span class="n">dtype_bytes</span><span class="o">*</span><span class="n">size</span><span class="o">*</span><span class="n">size</span> <span class="o">/</span> <span class="n">ms</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">metric_config</span><span class="o">=</span><span class="n">MetricConfig</span><span class="p">(</span>
+            <span class="n">MetricUnit</span><span class="o">.</span><span class="n">MS</span><span class="p">)</span>
+        
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;torch&#39;</span><span class="p">,</span> <span class="s1">&#39;bnb_sparse&#39;</span><span class="p">,</span> <span class="s1">&#39;torch_sparse&#39;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">representations</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;COO&#39;</span><span class="p">,</span> <span class="s1">&#39;CSC&#39;</span><span class="p">,</span> <span class="s1">&#39;CSR&#39;</span><span class="p">,</span> <span class="s1">&#39;BSC&#39;</span><span class="p">,</span> <span class="s1">&#39;BSR&#39;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ratios</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">r</span> <span class="o">&lt;</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="s1">&#39;bnb_sparse&#39;</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span> <span class="s1">&#39;bnb sparse only support float16&#39;</span>
+    <span class="k">if</span> <span class="s1">&#39;torch_sparse&#39;</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="s1">&#39;torch sparse only support float32&#39;</span>
+    
+    <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">size</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">seqlen</span><span class="p">,</span> <span class="mi">3</span><span class="o">*</span><span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="s1">&#39;w&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">size</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="o">*</span><span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="s1">&#39;wt&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">size</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="mi">3</span><span class="o">*</span><span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s1">&#39;bnb_sparse&#39;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ratios</span><span class="p">:</span>
+                <span class="n">inputs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">_COO_</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">:</span><span class="k">lambda</span> <span class="n">size</span><span class="p">:</span>
+                    <span class="n">get_coo</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="o">*</span><span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">ppf</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+                <span class="p">})</span>
+        <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s1">&#39;torch_sparse&#39;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ratios</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">representations</span><span class="p">:</span>
+                    <span class="n">inputs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">:</span><span class="k">lambda</span> <span class="n">size</span><span class="p">:</span>
+                        <span class="n">get_pt_sparse</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="o">*</span><span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">ppf</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="n">representation</span><span class="o">=</span><span class="n">p</span><span class="p">)</span>
+                    <span class="p">})</span>
+                
+    <span class="n">kernelfns</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;bnb.matmul&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> 
+            <span class="n">bnb</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;wt&#39;</span><span class="p">]),</span>
+        <span class="s1">&#39;torch.matmul&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> 
+            <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]),</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s1">&#39;bnb_sparse&#39;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ratios</span><span class="p">:</span>
+                <span class="n">kernelfns</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                    <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">_COO_</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> 
+                        <span class="n">F</span><span class="o">.</span><span class="n">spmm_coo</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">_COO_</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;wt&#39;</span><span class="p">]),</span>
+                    
+                <span class="p">})</span>
+        <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s1">&#39;torch_sparse&#39;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ratios</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">representations</span><span class="p">:</span>
+                    <span class="n">kernelfns</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">:</span><span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span>
+                        <span class="n">torch</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">r</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;wt&#39;</span><span class="p">])</span>
+                    <span class="p">})</span>
+
+    <span class="n">triton_benchmark_sizes</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">kernelfns</span><span class="p">,</span> <span class="n">sizes</span><span class="o">=</span><span class="n">hidden_sizes</span><span class="p">,</span> <span class="n">metric_config</span><span class="o">=</span><span class="n">metric_config</span><span class="p">)</span></div>
+
+<span class="c1"># %%</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">lmetric_prune_matmul_Lx3HxH</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, zhangzn710@gmail.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
