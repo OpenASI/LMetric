@@ -32,4 +32,4 @@
 # 2. .circleci/config.ml: pip install dist/lmetric-x.x.x-py3-none.any.whl
 # 3. setup.py VERSION='x.x.x'
 # 4. docs/conf.py release='x.x.x'
-# 4. sphinx-apidoc -o docs lmetric/
+# 5. sphinx-apidoc -o docs lmetric/ --force

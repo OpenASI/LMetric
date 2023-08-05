@@ -1,12 +1,15 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.0.1'
+VERSION = '0.0.2'
 DESCRIPTION = 'Large Model Metrics'
 LONG_DESCRIPTION = 'A tool for measuring training/inference of large models'
 
 requirements = [
     'huggingface_hub',
-    'pymeten'
+    'triton',
+    'scipy',
+    'bitsandbytes',
+    'pymeten',
 ]
 devRequirements = [
     'sphinx',
