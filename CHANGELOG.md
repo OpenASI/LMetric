@@ -10,3 +10,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Init
 
 - hf_download function
+
+## [0.0.2] - 2023-08-05
+
+### Add
+
+- lmetric_matmul
+- lmetric_prune_matmul
+- lmetric_quant_matmul
