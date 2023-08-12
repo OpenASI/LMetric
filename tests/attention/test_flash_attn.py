@@ -5,13 +5,16 @@ import torch.nn.functional as F
 
 import pytest
 
-from einops import rearrange, repeat
+try:
+    from einops import rearrange, repeat
 
-from flash_attn import flash_attn_func, flash_attn_kvpacked_func, flash_attn_qkvpacked_func
-from flash_attn import flash_attn_varlen_qkvpacked_func, flash_attn_varlen_kvpacked_func
-from flash_attn import flash_attn_varlen_func
-from flash_attn.flash_attn_interface import _get_block_size
-from flash_attn.bert_padding import unpad_input, pad_input, index_first_axis
+    from flash_attn import flash_attn_func, flash_attn_kvpacked_func, flash_attn_qkvpacked_func
+    from flash_attn import flash_attn_varlen_qkvpacked_func, flash_attn_varlen_kvpacked_func
+    from flash_attn import flash_attn_varlen_func
+    from flash_attn.flash_attn_interface import _get_block_size
+    from flash_attn.bert_padding import unpad_input, pad_input, index_first_axis
+except:
+    skip=True
 
 
 MAX_HEADDIM_SM8x = 192
@@ -343,7 +346,7 @@ def get_dropout_fraction(dropout_mask, query_padding_mask=None, key_padding_mask
 #@pytest.mark.parametrize('dropout_p', [0.17])
 @pytest.mark.parametrize('dropout_p', [0.0])
 def test_flash_attn_qkvpacked(seqlen, d, dropout_p, causal, dtype):
-    if not torch.cuda.is_available():
+    if skip or not torch.cuda.is_available():
         return
     if seqlen >= 2048 and torch.cuda.get_device_properties('cuda').total_memory <= 16 * 2**30:
         pytest.skip()  # Reference implementation OOM
