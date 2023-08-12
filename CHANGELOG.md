@@ -18,3 +18,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - lmetric_matmul
 - lmetric_prune_matmul
 - lmetric_quant_matmul
+
+## [0.0.3] - 2023-08-12
+
+### Add
+
+- lmetric_attention
+- README.md
