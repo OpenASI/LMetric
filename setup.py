@@ -10,6 +10,7 @@ requirements = [
     'scipy',
     'bitsandbytes',
     'pymeten',
+    'einops',
 ]
 devRequirements = [
     'sphinx',
