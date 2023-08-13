@@ -20,10 +20,13 @@ except:
 MAX_HEADDIM_SM8x = 192
 
 
-is_sm75 = torch.cuda.get_device_capability('cuda') == (7, 5)
-is_sm8x = torch.cuda.get_device_capability('cuda')[0] == 8
-is_sm80 = torch.cuda.get_device_capability('cuda') == (8, 0)
-is_sm90 = torch.cuda.get_device_capability('cuda') == (9, 0)
+if torch.cuda.is_available():
+    is_sm75 = torch.cuda.get_device_capability('cuda') == (7, 5)
+    is_sm8x = torch.cuda.get_device_capability('cuda')[0] == 8
+    is_sm80 = torch.cuda.get_device_capability('cuda') == (8, 0)
+    is_sm90 = torch.cuda.get_device_capability('cuda') == (9, 0)
+else:
+    is_sm75, is_sm8x, is_sm80, is_sm90 = False, False, False, False
 
 
 def generate_random_padding_mask(max_seqlen, batch_size, device, mode='random'):
