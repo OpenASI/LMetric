@@ -131,12 +131,15 @@ def lmetric_prune_matmul_Lx3HxH(seqlen=128, hidden_sizes=[2048 * i for i in rang
                         get_pt_sparse(torch.randn(3*size, size, device='cuda', dtype=dtype), threshold=norm.ppf(r), representation=p)
                     })
                 
-    kernelfns = {
-        'bnb.matmul': lambda **kwargs: 
-            bnb.matmul(kwargs['x'], kwargs['wt']),
-        'torch.matmul': lambda **kwargs: 
-            torch.matmul(kwargs['x'], kwargs['w']),
-    }
+    if 'torch' in kernels:
+        kernelfns = {
+            #'bnb.matmul': lambda **kwargs: 
+            #    bnb.matmul(kwargs['x'], kwargs['wt']),
+            'torch': lambda **kwargs: 
+                torch.matmul(kwargs['x'], kwargs['w']),
+        }
+    else:
+        kernelfns = {}
 
     for k in kernels:
         if k == 'bnb_sparse':
@@ -158,3 +161,5 @@ def lmetric_prune_matmul_Lx3HxH(seqlen=128, hidden_sizes=[2048 * i for i in rang
 # %%
 if __name__ == '__main__':
     lmetric_prune_matmul_Lx3HxH()
+
+# %%

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.0.2'
+VERSION = '0.0.3'
 DESCRIPTION = 'Large Model Metrics'
 LONG_DESCRIPTION = 'A tool for measuring training/inference of large models'
 
@@ -10,11 +10,16 @@ requirements = [
     'scipy',
     'bitsandbytes',
     'pymeten',
+    'einops',
 ]
 devRequirements = [
     'sphinx',
     'sphinx_rtd_theme',
     'pytest',
+]
+attentionRequirements = [
+    'flash-attn',
+    'xformers',
 ]
 
 setup(
@@ -28,7 +33,8 @@ setup(
     packages=find_packages(),
     install_requires=requirements,
     extras_require={
-        'dev': devRequirements
+        'dev': devRequirements,
+        'attention': attentionRequirements
     },
     keywords='conversion',
     classifiers= [
