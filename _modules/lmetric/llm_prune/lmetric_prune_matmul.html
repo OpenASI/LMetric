@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>lmetric.llm_prune.lmetric_prune_matmul &mdash; lmetric 0.0.2 documentation</title>
+  <title>lmetric.llm_prune.lmetric_prune_matmul &mdash; lmetric 0.0.3 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -202,12 +202,15 @@
                         <span class="n">get_pt_sparse</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="o">*</span><span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span> <span class="n">threshold</span><span class="o">=</span><span class="n">norm</span><span class="o">.</span><span class="n">ppf</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="n">representation</span><span class="o">=</span><span class="n">p</span><span class="p">)</span>
                     <span class="p">})</span>
                 
-    <span class="n">kernelfns</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s1">&#39;bnb.matmul&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> 
-            <span class="n">bnb</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;wt&#39;</span><span class="p">]),</span>
-        <span class="s1">&#39;torch.matmul&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> 
-            <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]),</span>
-    <span class="p">}</span>
+    <span class="k">if</span> <span class="s1">&#39;torch&#39;</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">:</span>
+        <span class="n">kernelfns</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="c1">#&#39;bnb.matmul&#39;: lambda **kwargs: </span>
+            <span class="c1">#    bnb.matmul(kwargs[&#39;x&#39;], kwargs[&#39;wt&#39;]),</span>
+            <span class="s1">&#39;torch&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> 
+                <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]),</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">kernelfns</span> <span class="o">=</span> <span class="p">{}</span>
 
     <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s1">&#39;bnb_sparse&#39;</span><span class="p">:</span>
@@ -229,6 +232,8 @@
 <span class="c1"># %%</span>
 <span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
     <span class="n">lmetric_prune_matmul_Lx3HxH</span><span class="p">()</span>
+
+<span class="c1"># %%</span>
 </pre></div>
 
            </div>

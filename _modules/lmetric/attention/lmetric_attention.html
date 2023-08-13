@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lmetric.attention.lmetric_attention &mdash; lmetric 0.0.3 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            lmetric
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules.html">lmetric</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">lmetric</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">lmetric.attention.lmetric_attention</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for lmetric.attention.lmetric_attention</h1><div class="highlight"><pre>
+<span></span><span class="c1"># %%</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+
+<span class="kn">from</span> <span class="nn">pymeten</span> <span class="kn">import</span> <span class="n">triton_benchmark_sizes</span><span class="p">,</span> <span class="n">MetricConfig</span><span class="p">,</span> <span class="n">MetricUnit</span>
+
+<span class="kn">from</span> <span class="nn">einops</span> <span class="kn">import</span> <span class="n">rearrange</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">flash_attn</span> <span class="kn">import</span> <span class="n">flash_attn_qkvpacked_func</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="n">flash_attn_qkvpacked_func</span><span class="o">=</span><span class="kc">None</span>
+<span class="kn">from</span> <span class="nn">triton.ops.flash_attention</span> <span class="kn">import</span> <span class="n">attention</span> <span class="k">as</span> <span class="n">attention_triton</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">xformers.ops</span> <span class="k">as</span> <span class="nn">xops</span>
+<span class="k">except</span><span class="p">:</span>
+    <span class="n">xops</span><span class="o">=</span><span class="kc">None</span>
+
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+
+<span class="c1"># %%</span>
+<div class="viewcode-block" id="attention_pytorch"><a class="viewcode-back" href="../../../lmetric.attention.html#lmetric.attention.lmetric_attention.attention_pytorch">[docs]</a><span class="k">def</span> <span class="nf">attention_pytorch</span><span class="p">(</span><span class="n">qkv</span><span class="p">,</span> <span class="n">dropout_p</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">causal</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        qkv: (batch_size, seqlen, 3, nheads, head_dim)</span>
+<span class="sd">        dropout_p: float</span>
+<span class="sd">    Output:</span>
+<span class="sd">        output: (batch_size, seqlen, nheads, head_dim)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">batch_size</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">nheads</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">qkv</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">qkv</span><span class="o">.</span><span class="n">unbind</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">rearrange</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="s1">&#39;b t h d -&gt; (b h) t d&#39;</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">rearrange</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="s1">&#39;b s h d -&gt; (b h) d s&#39;</span><span class="p">)</span>
+    <span class="n">softmax_scale</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+    <span class="c1"># Preallocate attn_weights for `baddbmm`</span>
+    <span class="n">scores</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">batch_size</span> <span class="o">*</span> <span class="n">nheads</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">qkv</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">qkv</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">scores</span> <span class="o">=</span> <span class="n">rearrange</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">baddbmm</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">softmax_scale</span><span class="p">),</span>
+                       <span class="s1">&#39;(b h) t s -&gt; b h t s&#39;</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="n">nheads</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">causal</span><span class="p">:</span>
+        <span class="c1"># &quot;triu_tril_cuda_template&quot; not implemented for &#39;BFloat16&#39;</span>
+        <span class="c1"># So we have to construct the mask in float</span>
+        <span class="n">causal_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">seqlen</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">),</span> <span class="o">-</span><span class="mf">10000.0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">scores</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># TD [2022-09-30]: Adding is faster than masked_fill_ (idk why, just better kernel I guess)</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="n">scores</span> <span class="o">+</span> <span class="n">causal_mask</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">scores</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">attention</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">attention_drop</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">attention</span><span class="p">,</span> <span class="n">dropout_p</span><span class="p">)</span>
+    <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;bhts,bshd-&gt;bthd&#39;</span><span class="p">,</span> <span class="n">attention_drop</span> <span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">output</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">qkv</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="lmetric_attention"><a class="viewcode-back" href="../../../lmetric.attention.html#lmetric.attention.lmetric_attention.lmetric_attention">[docs]</a><span class="k">def</span> <span class="nf">lmetric_attention</span><span class="p">(</span><span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>
+                                <span class="n">seqlen</span><span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+                                <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">=</span><span class="p">[</span><span class="mi">32</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">)],</span>
+                                <span class="n">head_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="ow">or</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+                                <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;TFLOPS&#39;</span><span class="p">,</span>
+                                <span class="n">kernels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;torch&#39;</span><span class="p">,</span> <span class="s1">&#39;triton_flash&#39;</span><span class="p">,</span> <span class="s1">&#39;flash2&#39;</span><span class="p">,</span> <span class="s1">&#39;xformers&#39;</span><span class="p">],</span>
+                                <span class="n">direction</span><span class="o">=</span><span class="s1">&#39;fwd&#39;</span>
+                                <span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Performs a attention module benchmarking with different kernels.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        batch_size (int|list[int]): Batch size of the input data. Default is 32.</span>
+<span class="sd">        seqlen (int|list[int]): Sequence length of the input data. Default is 128.</span>
+<span class="sd">        num_heads (list[int]): Number of heads. Default is [32, 64, 96, 128, 160].</span>
+<span class="sd">        head_dim (list[int]): The head dimension. Default is 64. triton_flash only support 64, and flash2 only support &lt;256.</span>
+<span class="sd">        dtype: Data type of the tensors. Default is torch.float16.</span>
+<span class="sd">        metric (str): Metric to measure performance. Available options are &#39;TFLOPS&#39;, &#39;TBPS&#39;, or &#39;MS&#39;. Default is &#39;TFLOPS&#39;.</span>
+<span class="sd">        kernels (list[str]): List of kernel functions to use. Default is [&#39;torch&#39;, &#39;triton_flash&#39;, &#39;flash2&#39;, &#39;xformers&#39;].</span>
+<span class="sd">        direction (str): Direction of computation. Available options are &#39;fwd&#39; (forward), &#39;bwd&#39; (backward), or &#39;fwd_bwd&#39;. Default is &#39;fwd&#39;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">dtype_bytes</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">bits</span> <span class="o">//</span> <span class="mi">8</span>
+    
+    <span class="n">comp_bs</span><span class="p">,</span> <span class="n">comp_seqlen</span><span class="p">,</span> <span class="n">comp_numhead</span><span class="p">,</span> <span class="n">comp_headdim</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">False</span>
+    
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+        <span class="n">comp_bs</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">seqlen</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+        <span class="n">comp_seqlen</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">num_heads</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+        <span class="n">comp_numhead</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">head_dim</span><span class="p">,</span> <span class="n">List</span><span class="p">):</span>
+        <span class="n">comp_headdim</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">assert</span> <span class="nb">sum</span><span class="p">([</span><span class="n">comp_bs</span><span class="p">,</span> <span class="n">comp_seqlen</span><span class="p">,</span> <span class="n">comp_numhead</span><span class="p">,</span> <span class="n">comp_headdim</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> \
+        <span class="s2">&quot;Must make one and only one of the following as a list: batch_size, </span><span class="se">\</span>
+<span class="s2">        seqlen, num_heads, head_dim&quot;</span>
+
+    <span class="k">if</span> <span class="s1">&#39;triton_flash&#39;</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">head_dim</span> <span class="o">==</span> <span class="mi">64</span> <span class="ow">or</span> \
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">head_dim</span><span class="p">,</span> <span class="n">List</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">head_dim</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">head_dim</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">64</span><span class="p">,</span> \
+                <span class="s2">&quot;triton_flash only support head_dim==64&quot;</span>
+    
+    <span class="k">def</span> <span class="nf">getTFLOPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">comp_bs</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">/</span><span class="n">ms</span>
+        <span class="k">if</span> <span class="n">comp_seqlen</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">size</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">/</span><span class="n">ms</span>
+        <span class="k">if</span> <span class="n">comp_numhead</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">/</span><span class="n">ms</span>
+        <span class="k">if</span> <span class="n">comp_headdim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">size</span> <span class="o">/</span><span class="n">ms</span>
+
+    <span class="k">def</span> <span class="nf">getTBPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">,</span> <span class="n">is_forward</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">comp_bs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">is_forward</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">seqlen</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">+</span>
+                    <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">dtype_bytes</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">/</span> <span class="n">ms</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span>
+                    <span class="mi">2</span><span class="o">*</span><span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">seqlen</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span><span class="p">,</span>
+                    <span class="mi">2</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">+</span>
+                    <span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">/</span> <span class="n">ms</span>
+        <span class="k">if</span> <span class="n">comp_seqlen</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">is_forward</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">+</span>
+                    <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">dtype_bytes</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">size</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">/</span> <span class="n">ms</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span>
+                    <span class="mi">2</span><span class="o">*</span><span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span><span class="p">,</span>
+                    <span class="mi">2</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">size</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">+</span>
+                    <span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">size</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">head_dim</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">/</span> <span class="n">ms</span>
+        <span class="k">if</span> <span class="n">comp_numhead</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">is_forward</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">+</span>
+                    <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">dtype_bytes</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">head_dim</span> <span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">/</span> <span class="n">ms</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span>
+                    <span class="mi">2</span><span class="o">*</span><span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">head_dim</span><span class="p">,</span>
+                    <span class="mi">2</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">head_dim</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">+</span>
+                    <span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">size</span> <span class="o">*</span> <span class="n">head_dim</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">/</span> <span class="n">ms</span>
+        <span class="k">if</span> <span class="n">comp_headdim</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">is_forward</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">size</span> <span class="o">+</span>
+                    <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">dtype_bytes</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">size</span> <span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">/</span> <span class="n">ms</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span>
+                    <span class="mi">2</span><span class="o">*</span><span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">size</span><span class="p">,</span>
+                    <span class="mi">2</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">size</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">+</span>
+                    <span class="n">dtype_bytes</span> <span class="o">*</span> <span class="n">batch_size</span> <span class="o">*</span> <span class="n">seqlen</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">num_heads</span> <span class="o">*</span> <span class="n">size</span><span class="o">/</span><span class="mi">64</span><span class="p">)</span> <span class="o">/</span> <span class="n">ms</span>
+
+    <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="s1">&#39;TFLOPS&#39;</span><span class="p">:</span>
+        <span class="n">metric_config</span><span class="o">=</span><span class="n">MetricConfig</span><span class="p">(</span>
+            <span class="n">MetricUnit</span><span class="o">.</span><span class="n">TFLOPS</span><span class="p">,</span>
+            <span class="n">calc_measure_fn</span><span class="o">=</span><span class="k">lambda</span> <span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">:</span>
+                <span class="mi">2</span><span class="o">*</span><span class="n">getTFLOPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">)</span> <span class="k">if</span> <span class="n">direction</span><span class="o">==</span><span class="s1">&#39;fwd&#39;</span> <span class="k">else</span> \
+                <span class="mi">5</span><span class="o">*</span><span class="n">getTFLOPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">)</span> <span class="k">if</span> <span class="n">direction</span><span class="o">==</span><span class="s1">&#39;bwd&#39;</span> <span class="k">else</span> \
+                <span class="mi">7</span><span class="o">*</span><span class="n">getTFLOPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">metric</span> <span class="o">==</span> <span class="s1">&#39;TBPS&#39;</span><span class="p">:</span>
+        <span class="n">metric_config</span><span class="o">=</span><span class="n">MetricConfig</span><span class="p">(</span>
+            <span class="n">MetricUnit</span><span class="o">.</span><span class="n">TBPS</span><span class="p">,</span> <span class="c1"># QKVO 8bsh, QK sm mask 5bs^2a</span>
+            <span class="c1"># TODO: don&#39;t assume head_dim is 64</span>
+            <span class="n">calc_measure_fn</span><span class="o">=</span><span class="k">lambda</span> <span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">:</span>
+                <span class="n">getTBPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="k">if</span> <span class="n">direction</span><span class="o">==</span><span class="s1">&#39;bwd&#39;</span> <span class="k">else</span> \
+                <span class="n">getTBPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">if</span> <span class="n">direction</span><span class="o">==</span><span class="s1">&#39;fwd&#39;</span> <span class="k">else</span> \
+                <span class="n">getTBPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="o">+</span> <span class="n">getTBPS</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">ms</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">metric_config</span><span class="o">=</span><span class="n">MetricConfig</span><span class="p">(</span>
+            <span class="n">MetricUnit</span><span class="o">.</span><span class="n">MS</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">get_qkv</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">separate</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">comp_bs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">separate</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">comp_seqlen</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">separate</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">comp_numhead</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">separate</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">head_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">comp_headdim</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">separate</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">seqlen</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cuda&#39;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        
+
+    <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;qkv&#39;</span> <span class="p">:</span> <span class="k">lambda</span> <span class="n">size</span><span class="p">:</span>
+            <span class="n">get_qkv</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+        <span class="s1">&#39;q&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">size</span><span class="p">:</span>
+            <span class="n">get_qkv</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+        <span class="s1">&#39;k&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">size</span><span class="p">:</span>
+            <span class="n">get_qkv</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+        <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">size</span><span class="p">:</span>
+            <span class="n">get_qkv</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+    <span class="p">}</span>
+
+    <span class="n">kernelfns</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;torch&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">attention_pytorch</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;qkv&#39;</span><span class="p">],</span> <span class="n">causal</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="s1">&#39;triton_flash&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">attention_triton</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;q&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;k&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;v&#39;</span><span class="p">],</span> <span class="mi">64</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">)),</span>
+        <span class="s1">&#39;flash2&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">flash_attn_qkvpacked_func</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;qkv&#39;</span><span class="p">]),</span>
+        <span class="s1">&#39;xformers&#39;</span><span class="p">:</span> <span class="k">lambda</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">xops</span><span class="o">.</span><span class="n">memory_efficient_attention</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;q&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;k&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;v&#39;</span><span class="p">],</span>
+                                            <span class="n">attn_bias</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                                            <span class="n">op</span><span class="o">=</span><span class="p">(</span><span class="n">xops</span><span class="o">.</span><span class="n">fmha</span><span class="o">.</span><span class="n">cutlass</span><span class="o">.</span><span class="n">FwOp</span><span class="p">,</span> <span class="n">xops</span><span class="o">.</span><span class="n">fmha</span><span class="o">.</span><span class="n">cutlass</span><span class="o">.</span><span class="n">BwOp</span><span class="p">))</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">flash_attn_qkvpacked_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">kernels</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s1">&#39;flash2&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">xops</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">kernels</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s1">&#39;xformers&#39;</span><span class="p">)</span>
+
+    <span class="n">kernelfns</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">kernelfns</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kernels</span><span class="p">}</span>
+
+
+    <span class="n">triton_benchmark_sizes</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span>
+                           <span class="n">kernelfns</span><span class="p">,</span>
+                           <span class="n">sizes</span><span class="o">=</span><span class="n">batch_size</span> <span class="k">if</span> <span class="n">comp_bs</span> <span class="k">else</span> \
+                                <span class="n">seqlen</span> <span class="k">if</span> <span class="n">comp_seqlen</span> <span class="k">else</span> \
+                                <span class="n">num_heads</span> <span class="k">if</span> <span class="n">comp_numhead</span> <span class="k">else</span> \
+                                <span class="n">head_dim</span><span class="p">,</span>
+                           <span class="n">metric_config</span><span class="o">=</span><span class="n">metric_config</span><span class="p">)</span></div>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">lmetric_attention</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="s1">&#39;fwd_bwd&#39;</span><span class="p">)</span>
+    <span class="c1">#lmetric_attention(batch_size=[32 * i for i in range (1, 31, 5)], num_heads=32, direction=&#39;fwd_bwd&#39;)</span>
+    <span class="c1">#lmetric_attention(seqlen=[128 * i for i in range (1, 9, 2)], num_heads=32, direction=&#39;fwd_bwd&#39;)</span>
+    <span class="c1">#lmetric_attention(head_dim=[64 * i for i in range (1, 5)], kernels=[&#39;torch&#39;, &#39;flash2&#39;, &#39;xformers&#39;], num_heads=32, direction=&#39;fwd_bwd&#39;)</span>
+<span class="c1"># %%</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, zhangzn710@gmail.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
