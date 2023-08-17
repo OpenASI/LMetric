@@ -9,6 +9,7 @@ Subpackages
 
    lmetric.attention
    lmetric.floating_ops
+   lmetric.llamacpp
    lmetric.llm_prune
    lmetric.llm_quant
    lmetric.utils
