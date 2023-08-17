@@ -19,7 +19,7 @@ lmetric_matmul_fp16(seqlen=128, sizes=[128 * i for i in range(2, 33, 5)], metric
 lmetric_matmul_fp16()
 ```
 
-![lmetric_matmul_fp16](https://raw.github.com/OpenASI/LMetric/tree/main/results/lmetric_matmul_fp16.png)
+![lmetric_matmul_fp16](https://raw.githubusercontent.com/OpenASI/LMetric/main/results/lmetric_matmul_fp16.png)
 
 ```python
 from lmetric import lmetric_quant_matmul_Lx3HxH
@@ -30,7 +30,7 @@ lmetric_quant_matmul_Lx3HxH(seqlen=128, hidden_sizes=[2048 * i for i in range(1,
 lmetric_quant_matmul_Lx3HxH()
 ```
 
-![lmetric_quant_matmul](https://raw.github.com/OpenASI/LMetric/tree/main/results/lmetric_quant_matmul.png)
+![lmetric_quant_matmul](https://raw.githubusercontent.com/OpenASI/LMetric/main/results/lmetric_quant_matmul.png)
 
 ```python
 from lmetric import lmetric_prune_matmul_Lx3HxH
@@ -42,7 +42,7 @@ lmetric_prune_matmul_Lx3HxH(seqlen=128, hidden_sizes=[2048 * i for i in range(1,
 lmetric_prune_matmul_Lx3HxH()
 ```
 
-![lmetric_prune_matmul](https://raw.github.com/OpenASI/LMetric/tree/main/results/lmetric_prune_matmul.png)
+![lmetric_prune_matmul](https://raw.githubusercontent.com/OpenASI/LMetric/main/results/lmetric_prune_matmul.png)
 
 ### Attention
 
@@ -59,7 +59,7 @@ lmetric_attention(batch_size=[32 * i for i in range (1, 31, 5)], seqlen=128, num
 ```
 
 The result comparison with batch_size from 32 to 832:
-![lmetric_attention_bs](https://raw.github.com/OpenASI/LMetric/tree/main/results/lmetric_attention_bs_32_832.png)
+![lmetric_attention_bs](https://raw.githubusercontent.com/OpenASI/LMetric/main/results/lmetric_attention_bs_32_832.png)
 
 
 ```python
@@ -70,7 +70,7 @@ lmetric_attention(batch_size=32, seqlen=[128 * i for i in range (1, 9, 2)], num_
 ```
 
 The result comparison with seqlen from 128 to 896:
-![lmetric_attention_seqlen](https://raw.github.com/OpenASI/LMetric/tree/main/results/lmetric_attention_seqlen_128_896.png)
+![lmetric_attention_seqlen](https://raw.githubusercontent.com/OpenASI/LMetric/main/results/lmetric_attention_seqlen_128_896.png)
 
 ```python
 from lmetric import lmetric_attention
@@ -80,7 +80,7 @@ lmetric_attention(batch_size=32, seqlen=128, num_heads=[32 * i for i in range(1,
 ```
 
 The result comparison with num_heads from 32 to 192:
-![lmetric_attention_numheads](https://raw.github.com/OpenASI/LMetric/tree/main/results/lmetric_attention_numheads_32_192.png)
+![lmetric_attention_numheads](https://raw.githubusercontent.com/OpenASI/LMetric/main/results/lmetric_attention_numheads_32_192.png)
 
 ```python
 from lmetric import lmetric_attention
@@ -90,4 +90,40 @@ lmetric_attention(batch_size=32, seqlen=128, num_heads=32, head_dim=[64 * i for 
 ```
 
 The result comparison with head_dim from 64 to 256:
-![lmetric_attention_headdim](https://raw.github.com/OpenASI/LMetric/tree/main/results/lmetric_attention_headdim_64_256.png)
+![lmetric_attention_headdim](https://raw.githubusercontent.com/OpenASI/LMetric/main/results/lmetric_attention_headdim_64_256.png)
+
+
+### LlamaCpp
+
+Linux (-DLLAMA_BLAS is for OpenBLAS)
+```
+CMAKE_ARGS="-DLLAMA_CUBLAS=on" FORCE_CMAKE=1 pip install llama-cpp-python
+```
+
+MacOS (https://github.com/abetlen/llama-cpp-python/blob/main/docs/install/macos.md)
+```
+CMAKE_ARGS="-DLLAMA_METAL=on" FORCE_CMAKE=1 pip install llama-cpp-python
+```
+
+Windows
+```
+$env:CMAKE_ARGS = "-DLLAMA_OPENBLAS=on"
+$env:FORCE_CMAKE = 1
+pip install llama-cpp-python
+```
+
+#### Autotune
+
+```
+python -m lmetric.llamacpp.lmetric_llamacpp --model_path <model_path> --n_batch 16 32 --n_threads 8 16
+```
+
+Change only one dimension to get a plot
+```
+python -m lmetric.llamacpp.lmetric_llamacpp --model_path <model_path> --n_batch 4 32 128 512 --n_threads 8
+```
+
+More commands
+```
+python -m lmetric.llamacpp.lmetric_llamacpp -h
+```
