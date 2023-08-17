@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.0.3'
+VERSION = '0.0.4'
 DESCRIPTION = 'Large Model Metrics'
 LONG_DESCRIPTION = 'A tool for measuring training/inference of large models'
 

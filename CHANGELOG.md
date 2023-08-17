@@ -25,3 +25,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 - lmetric_attention
 - README.md
+
+## [0.0.4] - 2023-08-17
+
+### Add
+
+- lmetric_llamacpp autotune
